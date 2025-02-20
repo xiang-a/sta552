@@ -1,0 +1,342 @@
+---
+title: "Examination of Feature Variables in 1989 Study on School and Individual Factors on Dutch 7th Grade Students Test Scores"
+author: "Alice Xiang"
+output: html_document
+---
+
+```{=html}
+
+<style type="text/css">
+
+/* Cascading Style Sheets (CSS) is a stylesheet language used to describe the presentation of a document written in HTML or XML. it is a simple mechanism for adding style (e.g., fonts, colors, spacing) to Web documents. */
+
+h1.title {  /* Title - font specifications of the report title */
+  font-size: 24px;
+  font-weight:bold;
+  color: DarkRed;
+  text-align: center;
+  font-family: "Gill Sans", sans-serif;
+}
+h4.author { /* Header 4 - font specifications for authors  */
+  font-size: 20px;
+  font-family: system-ui;
+  color: DarkRed;
+  text-align: center;
+}
+h4.date { /* Header 4 - font specifications for the date  */
+  font-size: 18px;
+  font-family: system-ui;
+  color: DarkBlue;
+  text-align: center;
+}
+h1 { /* Header 1 - font specifications for level 1 section title  */
+    font-size: 22px;
+    font-family: system-ui;
+    font-weight:bold;
+    color: navy;
+    text-align: left;
+}
+h2 { /* Header 2 - font specifications for level 2 section title */
+    font-size: 20px;
+    font-weight:bold;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h3 { /* Header 3 - font specifications of level 3 section title  */
+    font-size: 18px;
+    font-weight:bold;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h4 { /* Header 4 - font specifications of level 4 section title  */
+    font-size: 16px;
+    font-family: "Times New Roman", Times, serif;
+    color: darkred;
+    text-align: left;
+}
+
+body { background-color:white; }
+
+.highlightme { background-color:yellow; }
+
+p { background-color:white; }
+
+</style>
+```
+
+```{r setup, include=FALSE}
+# load in dataset included in 'mice' library in R 
+library(mice)
+library(tidyverse)
+library(knitr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(GGally)
+library(plotly)
+data("brandsma")
+x<- brandsma
+```
+
+# Introduction: 
+
+The dataset is a collection of data from Snijders and Bosker (2012) adapted from the raw data from a 1989 study by H. P. Brandsma and W. M. Knuver containing information on 4106 pupils at 216 schools, found in the R mice library (1). The 14 variables of the adapted dataset are listed below, featuring demographic information on the students and schools and their pre- and post-test scores for language and mathematics. The information on the original study (2) shows that a random sample of 250 Dutch primary schools were selected within which all seventh grade students were tested on their proficiency in Dutch language and mathematics before and after an interval of one year. Information was also gathered on the student backgrounds and schoolrelated factors with an intention of measuring the effects of school and classrom characteristics on the progress of the students in these subjects.
+
+sch - School number (numeric)
+
+pup - Pupil ID (numeric)
+
+iqv - IQ verbal (numeric)
+
+iqp - IQ performal (numeric)
+
+sex - Sex of pupil (categorical)
+
+ses - SES score of pupil (numeric)
+
+min - Minority member 0/1 (categorical)
+
+rpg - Number of repeated groups, 0, 1, 2 (categorical)
+
+lpr - language score PRE (numeric)
+
+lpo - language score POST (numeric)
+
+apr - Arithmetic score PRE (numeric)
+
+apo - Arithmetic score POST (numeric)
+ 
+den - Denomination classification 1-4 - at school level (categorical)
+
+ssi - School SES indicator - at school level (numeric)
+
+In this project, I intend to examine the distributions of each of the features in the dataset and investigate relationships between features. This will largely be done through the creation of visual representations to display possible patterns observed in the dataset. 
+
+# Distribution of Individual Features
+
+To begin, I define categorical variables as factors and examine a summary of the dataset. 
+
+```{r, echo = FALSE}
+mod.brandsma <- brandsma
+
+# converting any blank spaces to NAs in categorical variables
+mod.brandsma$sex[mod.brandsma$sex == ""] <- NA
+mod.brandsma$min[mod.brandsma$min == ""] <- NA
+mod.brandsma$rpg[mod.brandsma$rpg == ""] <- NA
+mod.brandsma$den[mod.brandsma$den == ""] <- NA
+
+mod.brandsma <- mod.brandsma %>% mutate(
+  sex = as.factor(sex),
+  min = as.factor(min),
+  rpg = as.factor(rpg),
+  den = as.factor(den)
+)
+
+summary(mod.brandsma)
+```
+
+Of these fourteen features, we note that missing values are present in eleven. The greatest amount of NAs are present in the feature ssi, which represents a measure of the socioeconomic standing of the school. In the 4106 observations in the dataset, 622 have no value recorded for this feature, which makes up 15.15% of the data. 
+
+As the dataset is recorded on a per-student basis, we can also group the data by the school number to see how many schools have missing values for ssi. 
+
+```{r, echo = FALSE}
+mod.brandsma %>% filter(is.na(ssi) == TRUE) %>% group_by(sch) %>% summarize(n = n())
+
+```
+
+As we can see, 31 schools record missing values for ssi. 
+
+Missing data imputation may be used in the future to address the concerns that missing values may create.
+
+Of our categorical features, these being sex, min, rpg, and den, we note that rpg specifically has a large issue with sparse categories, having one category (rpg=2) with only 10 observations. It, as well as min and den, also have very skewed distributions; min has over 3800 observations for min = 0 (non-minority students) and only 238 for min = 1 (minority students), while rpg has 3500 observations for rpg=0 and a little over 500 observations for the other two groups combined. den is fairly evenly distributed for values of den = 1, 2, and 3, but there are only 185 observations where den = 4. sex, on the other hand, has two categories of about the same size. 
+
+Of the remaining numeric variables, two are identification variables (neither of which have missing values), with sch identifying the school number and pup being a unique identification number for each student. As such, we will not look at the distribution of pup, but we can create a bar chart to look at how many students in the study attended each of the 216 schools included in the dataset. 
+
+```{r, echo = FALSE}
+# barplot of number of students per school
+ggplot(mod.brandsma, aes(x = sch)) +
+  geom_bar(color = "#C83E4D", fill = "#C83E4D") + ggtitle("Plot of # of students included per school in dataset")
+
+sch.counts <- mod.brandsma %>% count(sch, sort = TRUE)
+# minimum and maximum number of students per school
+min(sch.counts$n)
+max(sch.counts$n)
+
+# barplot of number of schools that had each number of students in the data
+ggplot(sch.counts, aes(x = n)) +
+  geom_bar(color = "#F4B860", fill = "#F4B860") + ggtitle("Plot of # of schools in dataset that were represented by each number of students") + xlab("Number of students in dataset") + ylab("Number of schools")
+```
+
+Upon looking at the first barplot, we note that there do not appear to be any obvious outliers of schools that were by and large under- or over-represented with students in the data. The values seem constrained between around 5 and a little over 35, a fact that is then corroborated when we find that the minimum number of students sent by any one school was 5 and the maximum sent by any one school was 36. Creating another bar plot to find the number of schools that sent each number of students, we find that most schools appear to have been represented by about 12-27 students in the dataset. 
+
+## Continuous Distributions
+
+Continuing onto our 8 continuous features, we may look at their distributions through histograms. 
+
+```{r, echo = FALSE, warning = FALSE}
+h1 <- ggplot(mod.brandsma, aes(x = iqv)) + geom_histogram(color = "#32373B", fill = "#C83E4D", binwidth = 1, na.rm = TRUE) 
+h2 <- ggplot(mod.brandsma, aes(x = iqp)) + geom_histogram(color = "#32373B", fill = "#F4B860", binwidth = 1, na.rm = TRUE)
+h3 <- ggplot(mod.brandsma, aes(x = ses)) + geom_histogram(color = "#32373B", fill = "#F4D6CC", binwidth = 4, na.rm = TRUE)
+h4 <- ggplot(mod.brandsma, aes(x = lpr)) + geom_histogram(color = "#32373B", fill = "#F4B860", binwidth = 3, na.rm = TRUE)
+h5 <- ggplot(mod.brandsma, aes(x = lpo)) + geom_histogram(color = "#32373B", fill = "#F4D6CC", binwidth = 5, na.rm = TRUE)
+h6 <- ggplot(mod.brandsma, aes(x = apr)) + geom_histogram(color = "#32373B", fill = "#C83E4D", binwidth = 2, na.rm = TRUE)
+h7 <- ggplot(mod.brandsma, aes(x = apo)) + geom_histogram(color = "#32373B", fill = "#F4D6CC", binwidth = 2.5, na.rm = TRUE)
+h8 <- ggplot(mod.brandsma, aes(x = ssi)) + geom_histogram(color = "#32373B", fill = "#F4B860", binwidth = 2, na.rm = TRUE)
+
+grid.arrange(h1, h2, h3, h4, h5, h6, h7, h8, nrow = 3, ncol = 3)
+```
+
+Looking across these 8 distributions, we do not see evidence of multiple peaks. All appear unimodal. Evidence of left skew appears present in the variables lpr, lpo, apo, and possibly iqv; evidence of right skew appears in ssi and ses. Skew and nonnormality may affect model-building techniques and their predictive potential. Issues created by nonnormality and skewness may be addressed in the future through feature engineering. 
+
+Looking at the histograms, we don't see particularly clear evidence for significant outliers in the data. We may further check for possible outliers in the continuous features through box plots. 
+
+```{r, echo = FALSE}
+b1 <- ggplot(mod.brandsma) +
+  aes(x = iqv) +
+  geom_boxplot(color = "#32373B", fill = "#C83E4D", na.rm = TRUE) 
+b2 <- ggplot(mod.brandsma) +
+  aes(x = iqp) +
+  geom_boxplot(color = "#32373B", fill = "#F4B860", na.rm = TRUE) 
+b3 <- ggplot(mod.brandsma) +
+  aes(x = ses) +
+  geom_boxplot(color = "#32373B", fill = "#F4D6CC", na.rm = TRUE) 
+b4 <- ggplot(mod.brandsma) +
+  aes(x = lpr) +
+  geom_boxplot(color = "#32373B", fill = "#F4B860", na.rm = TRUE) 
+b5 <- ggplot(mod.brandsma) +
+  aes(x = lpo) +
+  geom_boxplot(color = "#32373B", fill = "#F4D6CC", na.rm = TRUE) 
+b6 <- ggplot(mod.brandsma) +
+  aes(x = apr) +
+  geom_boxplot(color = "#32373B", fill = "#C83E4D", na.rm = TRUE) 
+b7 <- ggplot(mod.brandsma) +
+  aes(x = apo) +
+  geom_boxplot(color = "#32373B", fill = "#F4D6CC", na.rm = TRUE) 
+b8 <- ggplot(mod.brandsma) +
+  aes(x = ssi) +
+  geom_boxplot(color = "#32373B", fill = "#F4B860", na.rm = TRUE) 
+
+grid.arrange(b1, b2, b3, b4, b5, b6, b7, b8, ncol = 3, nrow = 3)
+```
+
+Outlying points that are more than 1.5 times the IQR away from the median are displayed in each of the above boxplots. Possible extreme values are observed in iqv, iqp, lpr, and lpo, but the significance of these possible outliers and the effects that they may have on future model creation will be considered in the future. 
+
+# Visualizing Relationships between Feature Variables
+
+## Continuous vs. Continuous Features
+
+We can take an initial look at relationships between continuous feature variables through pairwise plots. 
+
+```{r, echo = FALSE, warning = FALSE}
+ggpairs(mod.brandsma,          # Data frame
+        columns = c(3, 4, 6, 9, 10, 11, 12, 14),         # Columns
+        aes(alpha = 0.5))
+
+```
+
+A notably high positive correlation is observed between lpr and lpo (r = 0.712), which correspond to the Language Pre-test and Post-test scores respectively; this makes logical sense with what we would expect from test scores over time. Other variables with correlations between 0.6 and 0.7 include lpr and iqv (r = 0.640, Language Pre-test score and Verbal IQ score), lpo and iqv (r = 0.613, Language Post-test score and Verbal IQ score), apo and lpo (r = 0.698, Arithmetic Post-test and Language Post-test score), and apo and apr (r = 0.636, Arithmetic Pre-test and Post-test score). All of the correlations between these eight variables are positive and marked significant at the alpha = 0.05 level; this likely has to do with the large sample size of the dataset. All of the above positive correlations mentioned make logical sense in support of the statistical findings.
+
+Practically, the correlation that exists within the dataset may make it easier for us to impute for the missing values noted earlier as well as enable the usage of techniques such as principal component analysis to reduce the dimensionality of the data without risking excess information loss. To improve the performance of predictive models and the reliability of their results, measures may be necessary to address possible multicollinearity in the data. 
+
+## Continuous vs. Categorical Features
+
+With 4 categorical features and 8 continuous, I refrained from comparing every combination of the categorical and continuous feature variables together. Instead, going off of the original study's usage of post-test scores as a response, I compared each of the categorical features with the Language and Arithmetic post-test results through box plots. 
+
+```{r, echo = FALSE}
+g1 <- ggplot(mod.brandsma) +
+  aes(x = lpo, y = sex, fill = sex) +
+  geom_boxplot(na.rm = TRUE, color = "#32373B") + 
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="top") +
+  xlab("Language Post-test Score") + 
+  ylab("Sex") + scale_fill_manual(values = c("#C83E4D", "#F4B860", "#F4D6CC"))
+g2 <- ggplot(mod.brandsma) +
+  aes(x = lpo, y = min, fill = min) +
+  geom_boxplot(na.rm = TRUE, color = "#32373B") + 
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="top") +
+  xlab("Language Post-test Score") + 
+  ylab("Minority Status (0 = No, 1 = Yes)") + scale_fill_manual(values = c("#C83E4D", "#F4B860"))
+g3 <- ggplot(mod.brandsma) +
+  aes(x = lpo, y = rpg, fill = rpg) +
+  geom_boxplot(na.rm = TRUE, color = "#32373B") + 
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="top") +
+  xlab("Language Post-test Score") + 
+  ylab("# of Repeated Groups") + scale_fill_manual(values = c("#C83E4D", "#F4B860", "#F4D6CC"))
+g4 <- ggplot(mod.brandsma) +
+  aes(x = lpo, y = den, fill = den) +
+  geom_boxplot(na.rm = TRUE, color = "#32373B") + 
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="top") +
+  xlab("Language Post-test Score") + 
+  ylab("School Denomination") + scale_fill_manual(values = c("#C83E4D", "#F4B860", "#F4D6CC", "#4A5859"))
+
+grid.arrange(g1, g2, g3, g4, ncol = 2, nrow = 2)
+
+g5 <- ggplot(mod.brandsma) +
+  aes(x = apo, y = sex, fill = sex) +
+  geom_boxplot(na.rm = TRUE, color = "#32373B") + 
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="top") +
+  xlab("Arithmetic Post-test Score") + 
+  ylab("Sex") + scale_fill_manual(values = c("#C83E4D", "#F4B860", "#F4D6CC"))
+g6 <- ggplot(mod.brandsma) +
+  aes(x = apo, y = min, fill = min) +
+  geom_boxplot(na.rm = TRUE, color = "#32373B") + 
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="top") +
+  xlab("Arithmetic Post-test Score") + 
+  ylab("Minority Status (0 = No, 1 = Yes)") + scale_fill_manual(values = c("#C83E4D", "#F4B860"))
+g7 <- ggplot(mod.brandsma) +
+  aes(x = apo, y = rpg, fill = rpg) +
+  geom_boxplot(na.rm = TRUE, color = "#32373B") + 
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="top") +
+  xlab("Arithmetic Post-test Score") + 
+  ylab("# of Repeated Groups") + scale_fill_manual(values = c("#C83E4D", "#F4B860", "#F4D6CC"))
+g8 <- ggplot(mod.brandsma) +
+  aes(x = apo, y = den, fill = den) +
+  geom_boxplot(na.rm = TRUE, color = "#32373B") + 
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="top") +
+  xlab("Arithmetic Post-test Score") + 
+  ylab("School Denomination") + scale_fill_manual(values = c("#C83E4D", "#F4B860", "#F4D6CC", "#4A5859"))
+
+grid.arrange(g5, g6, g7, g8, ncol = 2, nrow = 2)
+```
+
+The boxplots also include boxplots for observations with missing values for the number of repeated groups but existing values for the Language and Arithmetic Post-test scores. Looking at these box plots, the only group that seems to be noticeably different for the values of Language or Arithmetic Post-test scores is the number of repeated groups, in which students where rpg = 0 seem to have higher values for both Language and Arithmetic Post-test scores. Otherwise, we note that while students with sex = 0 have lower scores for the Language Post-score than those of the other sex, they have higher scores for their Arithmetic post-test scores. Non-minority students have higher post-test scores across both subjects, though future analysis is necessary to indicate whether or not these differences are significant. No particularly obvious patterns exist across school denominations and Language or Arithmetic Post-test scores.
+
+## Categorical vs. Categorical Features
+
+We utilize mosaic plots to compare the four different categorical features with each other. 
+
+```{r, echo = FALSE}
+par(mfrow = c(2 ,3))
+mosaicplot(sex ~ min, data=mod.brandsma,col=c("#C83E4D", "#F4B860", "#F4D6CC"), main="Sex versus Minority status")
+mosaicplot(sex ~ rpg, data=mod.brandsma,col=c("#C83E4D", "#F4B860", "#F4D6CC"), main="Sex versus # of Repeated Groups")
+mosaicplot(sex ~ den, data=mod.brandsma,col=c("#C83E4D", "#F4B860", "#F4D6CC", "#4A5859"), main="Sex versus School Denomination")
+mosaicplot(min ~ rpg, data=mod.brandsma,col=c("#C83E4D", "#F4B860", "#F4D6CC"), main="Minority status versus # of Repeated Groups")
+mosaicplot(min ~ den, data=mod.brandsma,col=c("#C83E4D", "#F4B860", "#F4D6CC", "#4A5859"), main="Minority status versus School Denomination")
+mosaicplot(rpg ~ den, data = mod.brandsma,col=c("#C83E4D", "#F4B860", "#F4D6CC", "#4A5859"), main="# of Repeated Groups versus School Denomination")
+
+```
+
+The mosaic plots created illustrate the issues of sparse categories that exists within these categorical features, particularly in the case of school denomination versus repeated groups, where it appears that no observations exist in the intersection of 2 groups and a school denomination of 2 or 4. There appear to be more students with more than one repeated groups among minority students compared to nonminority students, more minority students among those with a school denomination of one, and slightly more students who have a repeated groups value of 0 where sex = 1. On the other hand, the school denominations seem evenly distributed across the sexes, as does minority status of the student. Future analysis can corroborate these patterns and determine if any are significant. 
+
+# Summary and Discussion 
+
+To conclude, we looked at the individual relationships between all features, categorical and continuous, to learn more about how they are distributed and foresee any possible problems with future work on this dataset. Three of the four categorical features seem to feature skewed distributions with one group having many more or fewer observations than any of the others, and sparse categories may require certain groups to be binned together for future analysis. Of the continuous distributions, several showed evidence of skew that may affect the ability to use these features in model creation without transforming them beforehand. Additionally, eleven of the fourteen features contained missing values which may require imputation. 
+
+When investigating the relationships between any two features, we saw evidence of correlation within the continuous features through our pairwise scatter plots. This may allow for methods of reducing the data's dimensionality while still retaining most of the information and allow for methods of missing value imputation. We investigated differences between groups in their post-test Language and Arithmetic scores, as well as differences in group distributions across groups of categorical variables. This initial examination and visualization of the different features in the dataset and the relationships between them opens the way for future analysis. 
+
+# References and Appendix
+
+(1) https://amices.org/mice/reference/brandsma.html
+
+(2) https://www.sciencedirect.com/science/article/abs/pii/0883035589900281
